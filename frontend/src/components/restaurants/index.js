@@ -46,7 +46,7 @@ const Restaurants = () => {
   const onStarRestaurant = async (id) => {
     const { data, status } = await starRestaurant(id);
 
-    if (status !== 200) {
+    if (status !== 201) {
       alert("Updating failed");
       return;
     }

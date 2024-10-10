@@ -27,7 +27,7 @@ const StarredRestaurants = () => {
   const onUnstarRestaurant = async (id) => {
     const responseStatus = await unstarRestaurant(id);
 
-    if (responseStatus !== 200) {
+    if (responseStatus !== 204) {
       alert("Updating failed");
       return;
     }

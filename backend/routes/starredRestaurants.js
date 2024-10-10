@@ -91,6 +91,7 @@ router.post("/", (req, res) => {
 
     STARRED_RESTAURANTS.push(newStarredRestaurant);
 
+    res.status(201);
     res.json({
         id: newStarredRestaurant.id,
         name: restaurant.name
@@ -112,7 +113,7 @@ router.delete("/:id", (req, res) => {
 
     STARRED_RESTAURANTS.splice(index, 1);
 
-    res.sendStatus(200);
+    res.sendStatus(204);
 });
 
 
