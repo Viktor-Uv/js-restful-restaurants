@@ -53,7 +53,7 @@ const StarredRestaurants = () => {
   };
 
   return (
-    <div className='column'>
+    <div className="column">
       <h2>⭐ Starred Restaurants ⭐</h2>
       <ul>
         {starredRestaurants.map((restaurant) => (
