@@ -75,8 +75,7 @@ router.get("/:id", (req, res) => {
  * Feature 8: Adding to your list of starred restaurants.
  */
 router.post("/", (req, res) => {
-    const {body} = req;
-    const restaurantId = body.id;
+    const {restaurantId} = req.body;
 
     const restaurant = findRestaurant(restaurantId);
     if (!restaurant) {
