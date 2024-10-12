@@ -5,19 +5,15 @@ const flattenObject = require("../utils/flattenObject");
 
 const DB_STARRED_RESTAURANTS = "starred_restaurants";
 const DB_RESTAURANTS = "restaurants";
+const SELECT_STARRED_RESTAURANTS_QUERY = "id, comment, restaurants(*)";
+const SELECT_ALL_ROWS_QUERY = "*";
 
 /**
  * Feature 6: Getting the list of all starred restaurants.
  */
 router.get("/", async (req, res) => {
-    const {data} = await supabaseProvider.from(DB_STARRED_RESTAURANTS).select(`
-		id,
-		comment,
-		restaurants (
-			id,
-			name
-		)
-	`);
+    const {data} = await supabaseProvider.from(DB_STARRED_RESTAURANTS)
+        .select(SELECT_STARRED_RESTAURANTS_QUERY);
 
     // Flatten the data. We are doing this because the database will return a nested structure.
     // For demo purposes, we change the structure to make it easier to handle on the frontend.
@@ -38,14 +34,14 @@ router.get("/:id", async (req, res) => {
         return;
     }
 
-    res.json(starredRestaurant);
+    res.json(flattenObject(starredRestaurant));
 });
 
 /**
  * Feature 8: Adding to your list of starred restaurants.
  */
 router.post("/", async (req, res) => {
-    const {restaurantId} = req.body;
+    const {id: restaurantId} = req.body;
 
     const restaurant = await findRestaurant(restaurantId);
     if (!restaurant) {
@@ -53,24 +49,18 @@ router.post("/", async (req, res) => {
         return;
     }
 
-    const {data, error} = await supabaseProvider.from(DB_STARRED_RESTAURANTS)
+    const {data: item, error} = await supabaseProvider.from(DB_STARRED_RESTAURANTS)
         .insert([{restaurantId: restaurantId, comment: null}])
-        .select(`
-		id,
-		comment,
-		restaurants (
-			id,
-			name
-		)
-	`);
+        .select(SELECT_STARRED_RESTAURANTS_QUERY)
+        .maybeSingle();
 
-    if (error || data.length !== 1) {
+    if (error || !item) {
         res.status(400).send({error});
         return;
     }
 
     res.status(201);
-    res.json(flattenObject(data[0]));
+    res.json(flattenObject(item));
 });
 
 /**
@@ -81,7 +71,7 @@ router.delete("/:id", async (req, res) => {
 
     const {error} = await supabaseProvider.from(DB_STARRED_RESTAURANTS)
         .delete()
-        .match({id: id});
+        .eq("id", id);
     if (error) {
         res.status(404).send({error});
         return;
@@ -99,7 +89,7 @@ router.put("/:id", async (req, res) => {
 
     const {error} = await supabaseProvider.from(DB_STARRED_RESTAURANTS)
         .update({comment: newComment})
-        .match({id: id});
+        .eq("id", id);
     if (error) {
         res.status(404).send({error});
         return;
@@ -108,20 +98,23 @@ router.put("/:id", async (req, res) => {
     res.sendStatus(200);
 });
 
-
 const findStarredRestaurant = async id => {
-    return await fetchItemFromDatabase(DB_STARRED_RESTAURANTS, id);
+    return await fetchItemFromDatabase(DB_STARRED_RESTAURANTS, SELECT_STARRED_RESTAURANTS_QUERY, id);
 }
 
 const findRestaurant = async id => {
-    return await fetchItemFromDatabase(DB_RESTAURANTS, id);
+    return await fetchItemFromDatabase(DB_RESTAURANTS, SELECT_ALL_ROWS_QUERY, id);
 }
 
-const fetchItemFromDatabase = async (databaseName, itemId) => {
-    const {data} = await supabaseProvider.from(databaseName)
-        .select("*")
-        .eq("id", itemId);
-    return data.length > 0 ? restaurantData[0] : undefined;
+const fetchItemFromDatabase = async (databaseName, selectQuery, itemId) => {
+    const {data: item, error} = await supabaseProvider.from(databaseName)
+        .select(selectQuery)
+        .eq("id", itemId)
+        .maybeSingle();
+    if (error || !item) {
+        return undefined;
+    }
+    return item;
 }
 
 module.exports = router;
