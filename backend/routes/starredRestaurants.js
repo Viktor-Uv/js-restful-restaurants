@@ -1,146 +1,120 @@
 const express = require("express");
-const { v4: uuidv4 } = require("uuid");
 const router = express.Router();
-const ALL_RESTAURANTS = require("./restaurants").restaurants;
+const supabaseProvider = require("../provider/supabase");
+const flattenObject = require("../utils/flattenObject");
 
-/**
- * A list of starred restaurants.
- * In a "real" application, this data would be maintained in a database.
- */
-let STARRED_RESTAURANTS = [
-  {
-    id: "a7272cd9-26fb-44b5-8d53-9781f55175a1",
-    restaurantId: "869c848c-7a58-4ed6-ab88-72ee2e8e677c",
-    comment: "Best pho in NYC",
-  },
-  {
-    id: "8df59b21-2152-4f9b-9200-95c19aa88226",
-    restaurantId: "e8036613-4b72-46f6-ab5e-edd2fc7c4fe4",
-    comment: "Their lunch special is the best!",
-  },
-];
+const DB_STARRED_RESTAURANTS = "starred_restaurants";
+const DB_RESTAURANTS = "restaurants";
+const SELECT_STARRED_RESTAURANTS_QUERY = "id, comment, restaurants(*)";
+const SELECT_ALL_ROWS_QUERY = "*";
 
 /**
  * Feature 6: Getting the list of all starred restaurants.
  */
-router.get("/", (req, res) => {
-  /**
-   * We need to join our starred data with the all restaurants data to get the names.
-   * Normally this join would happen in the database.
-   */
-  const joinedStarredRestaurants = STARRED_RESTAURANTS.map(
-    (starredRestaurant) => {
-      const restaurant = ALL_RESTAURANTS.find(
-        (restaurant) => restaurant.id === starredRestaurant.restaurantId
-      );
+router.get("/", async (req, res) => {
+    const {data} = await supabaseProvider.from(DB_STARRED_RESTAURANTS)
+        .select(SELECT_STARRED_RESTAURANTS_QUERY);
 
-      return {
-        id: starredRestaurant.id,
-        comment: starredRestaurant.comment,
-        name: restaurant.name,
-      };
-    }
-  );
+    // Flatten the data. We are doing this because the database will return a nested structure.
+    // For demo purposes, we change the structure to make it easier to handle on the frontend.
+    const flattenedData = data.map((record) => flattenObject(record));
 
-  res.json(joinedStarredRestaurants);
+    res.json(flattenedData);
 });
 
 /**
  * Feature 7: Getting a specific starred restaurant.
  */
-router.get("/:id", (req, res) => {
+router.get("/:id", async (req, res) => {
     const {id} = req.params;
 
-    const foundStarredRestaurant = findStarredRestaurant(id);
-    if (!foundStarredRestaurant) {
-        res.sendStatus(404);
-        return;
-    }
-
-    const restaurant = findRestaurant(foundStarredRestaurant.restaurantId);
-    if (!restaurant) {
-        res.sendStatus(404);
-        return;
-    }
-
-    res.json({
-        id: foundStarredRestaurant.id,
-        comment: foundStarredRestaurant.comment,
-        name: restaurant.name
-    });
-});
-
-
-/**
- * Feature 8: Adding to your list of starred restaurants.
- */
-router.post("/", (req, res) => {
-    const {restaurantId} = req.body;
-
-    const restaurant = findRestaurant(restaurantId);
-    if (!restaurant) {
-        res.sendStatus(404);
-        return;
-    }
-
-    const newStarredRestaurant = {
-        id: uuidv4(),
-        restaurantId: restaurantId
-    };
-
-    STARRED_RESTAURANTS.push(newStarredRestaurant);
-
-    res.status(201);
-    res.json({
-        id: newStarredRestaurant.id,
-        name: restaurant.name
-    });
-});
-
-
-/**
- * Feature 9: Deleting from your list of starred restaurants.
- */
-router.delete("/:id", (req, res) => {
-    const {id} = req.params;
-
-    const index = STARRED_RESTAURANTS.findIndex(sr => sr.id === id);
-    if (index < 0) {
-        res.sendStatus(404);
-        return;
-    }
-
-    STARRED_RESTAURANTS.splice(index, 1);
-
-    res.sendStatus(204);
-});
-
-
-/**
- * Feature 10: Updating your comment of a starred restaurant.
- */
-router.put("/:id", (req, res) => {
-    const {id} = req.params;
-    const {newComment} = req.body;
-
-    const starredRestaurant = findStarredRestaurant(id);
+    const starredRestaurant = await findStarredRestaurant(id);
     if (!starredRestaurant) {
         res.sendStatus(404);
         return;
     }
 
-    starredRestaurant.comment = newComment;
+    res.json(flattenObject(starredRestaurant));
+});
+
+/**
+ * Feature 8: Adding to your list of starred restaurants.
+ */
+router.post("/", async (req, res) => {
+    const {id: restaurantId} = req.body;
+
+    const restaurant = await findRestaurant(restaurantId);
+    if (!restaurant) {
+        res.sendStatus(404);
+        return;
+    }
+
+    const {data: item, error} = await supabaseProvider.from(DB_STARRED_RESTAURANTS)
+        .insert([{restaurantId: restaurantId, comment: null}])
+        .select(SELECT_STARRED_RESTAURANTS_QUERY)
+        .maybeSingle();
+
+    if (error || !item) {
+        res.status(400).send({error});
+        return;
+    }
+
+    res.status(201);
+    res.json(flattenObject(item));
+});
+
+/**
+ * Feature 9: Deleting from your list of starred restaurants.
+ */
+router.delete("/:id", async (req, res) => {
+    const {id} = req.params;
+
+    const {error} = await supabaseProvider.from(DB_STARRED_RESTAURANTS)
+        .delete()
+        .eq("id", id);
+    if (error) {
+        res.status(404).send({error});
+        return;
+    }
+
+    res.sendStatus(204);
+});
+
+/**
+ * Feature 10: Updating your comment of a starred restaurant.
+ */
+router.put("/:id", async (req, res) => {
+    const {id} = req.params;
+    const {newComment} = req.body;
+
+    const {error} = await supabaseProvider.from(DB_STARRED_RESTAURANTS)
+        .update({comment: newComment})
+        .eq("id", id);
+    if (error) {
+        res.status(404).send({error});
+        return;
+    }
 
     res.sendStatus(200);
 });
 
-
-const findStarredRestaurant = id => {
-    return STARRED_RESTAURANTS.find(sr => sr.id === id);
+const findStarredRestaurant = async id => {
+    return await fetchItemFromDatabase(DB_STARRED_RESTAURANTS, SELECT_STARRED_RESTAURANTS_QUERY, id);
 }
 
-const findRestaurant = id => {
-    return ALL_RESTAURANTS.find(r => r.id === id);
+const findRestaurant = async id => {
+    return await fetchItemFromDatabase(DB_RESTAURANTS, SELECT_ALL_ROWS_QUERY, id);
+}
+
+const fetchItemFromDatabase = async (databaseName, selectQuery, itemId) => {
+    const {data: item, error} = await supabaseProvider.from(databaseName)
+        .select(selectQuery)
+        .eq("id", itemId)
+        .maybeSingle();
+    if (error || !item) {
+        return undefined;
+    }
+    return item;
 }
 
 module.exports = router;

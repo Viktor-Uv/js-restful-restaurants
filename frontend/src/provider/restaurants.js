@@ -22,6 +22,7 @@ export const RestaurantsReducer = (state = RestaurantsInitialState, action) => {
         restaurants: state.restaurants.filter(
           (restaurant) => restaurant.id !== action.payload
         ),
+        starredRestaurants: state.starredRestaurants.filter( starred => starred.restaurantId !== action.payload)
       };
     }
     case "UPDATE_RESTAURANT_NAME": {
@@ -29,11 +30,18 @@ export const RestaurantsReducer = (state = RestaurantsInitialState, action) => {
       const restaurantToUpdate = nextRestaurantsState.find(
         (restaurant) => restaurant.id === action.payload.id
       );
+      const nextStarredState = [...state.starredRestaurants]
+      const starredToUpdate = nextStarredState.find(starred => starred.restaurantId === action.payload.id)
+
+      if(starredToUpdate) {
+        starredToUpdate.name = action.payload.newName
+      }
 
       restaurantToUpdate.name = action.payload.newName;
       return {
         ...state,
         restaurants: nextRestaurantsState,
+        starredRestaurants: nextStarredState
       };
     }
     case "STAR_RESTAURANT": {
