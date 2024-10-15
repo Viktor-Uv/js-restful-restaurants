@@ -6,7 +6,7 @@ const flattenObject = require("../utils/flattenObject");
 const DB_STARRED_RESTAURANTS = "starred_restaurants";
 const DB_RESTAURANTS = "restaurants";
 const SELECT_STARRED_RESTAURANTS_QUERY = "id, comment, restaurants(*)";
-const SELECT_ALL_ROWS_QUERY = "*";
+const SELECT_ALL_COLUMNS_QUERY = "*";
 
 /**
  * Feature 6: Getting the list of all starred restaurants.
@@ -103,7 +103,7 @@ const findStarredRestaurant = async id => {
 }
 
 const findRestaurant = async id => {
-    return await fetchItemFromDatabase(DB_RESTAURANTS, SELECT_ALL_ROWS_QUERY, id);
+    return await fetchItemFromDatabase(DB_RESTAURANTS, SELECT_ALL_COLUMNS_QUERY, id);
 }
 
 const fetchItemFromDatabase = async (databaseName, selectQuery, itemId) => {
